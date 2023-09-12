@@ -1,0 +1,368 @@
+---
+title: "Stats 506 Assignment 1"
+format: 
+   pdf:
+    code-fold: true
+editor: visual
+---
+
+```{r}
+library(quarto)
+```
+
+## Problem 1
+
+### a.
+
+```{r}
+wine <- read.table("wine.data", header = FALSE, sep = ",")
+column_names <- c("Class", "Alcohol", "Malic_acid", "Ash", "Alcalinity_ash", "Magnesium", "Total_phenols", "Flavanoids", "Nonflavanoid_phenols", "Proanthocyanins", "Color_intensity", "Hue", "OD280/OD315", "Proline")
+colnames(wine) <- column_names
+wine
+```
+
+### b.
+
+```{r}
+class_num <- table(wine$Class)
+class_num
+```
+
+After checking, the number of wines within each class is correct.
+
+### c.
+
+#### 1.
+
+```{r}
+highest <- wine[which.max(wine$Alcohol),]
+highest
+```
+
+As we can see in the result, the wine with the highest alcohol content belongs to class 1.
+
+#### 2.
+
+```{r}
+lowest <- wine[which.min(wine$Alcohol),]
+lowest
+```
+
+As we can see in the result, the wine with the lowest alcohol content belongs to class 2.
+
+#### 3.
+
+```{r}
+higher_mag <- nrow(subset(wine, Magnesium > 114))
+higher_mag
+```
+
+There are 26 wines have higher levels of magnesium than 114 mg/l.
+
+#### 4.
+
+```{r}
+higher_mag1 <- nrow(subset(wine, Magnesium > 114 & Class == 1))
+higher_mag2 <- nrow(subset(wine, Magnesium > 114 & Class == 2))
+higher_mag3 <- nrow(subset(wine, Magnesium > 114 & Class == 3))
+higher_mag1
+higher_mag2
+higher_mag3
+```
+
+There are 15 wines in class 1 have higher levels of magnesium than 114 mg/l.
+
+There are 6 wines in class 2 have higher levels of magnesium than 114 mg/l.
+
+There are 5 wines in class 3 have higher levels of magnesium than 114 mg/l.
+
+### d.
+
+```{r}
+average <- data.frame(matrix(NA, nrow = 14, ncol = 4),row.names = c("Class", "Alcohol", "Malic_acid", "Ash", "Alcalinity_ash", "Magnesium", "Total_phenols", "Flavanoids", "Nonflavanoid_phenols", "Proanthocyanins", "Color_intensity", "Hue", "OD280/OD315", "Proline"))
+colnames(average) <- c("total_ave", "class1_ave", "class2_ave","class3_ave")
+average$total_ave <- colMeans(wine)
+subset_class1 <- subset(wine, Class == 1)
+subset_class2 <- subset(wine, Class == 2)
+subset_class3 <- subset(wine, Class == 3)
+average$class1_ave <- colMeans(subset_class1)
+average$class2_ave <- colMeans(subset_class2)
+average$class3_ave <- colMeans(subset_class3)
+average_out = data.frame(t(average))
+average_out
+```
+
+### e.
+
+```{r}
+class1_ash <- subset_class1$Ash
+class2_ash <- subset_class2$Ash
+class3_ash <- subset_class3$Ash
+
+t_test_1vs2 <- t.test(class1_ash, class2_ash)
+t_test_1vs3 <- t.test(class1_ash, class3_ash)
+t_test_2vs3 <- t.test(class2_ash, class3_ash)
+
+print(t_test_1vs2)
+print(t_test_1vs3)
+print(t_test_2vs3)
+```
+
+The p-value of ash in class 1 and class 2 is 2.124e-05, which is smaller than 0.05. Therefore, the ash level in class 1 and class 2 is significantly different from each other.
+
+The p-value of ash in class 1 and class 3 is 0.643, which is larger than 0.05. Therefore, the ash level in class 1 and class 3 is not significantly different from each other, which means it is similar to each other.
+
+The p-value of ash in class 2 and class 3 is 5.627e-05, which is smaller than 0.05. Therefore, the ash level in class 2 and class 3 is significantly different from each other.
+
+## Problem 2
+
+### a.
+
+```{r}
+isPerfectPower <- function(n, power) {
+  if (power < 2) {
+    return(list(isPerfect = FALSE, root = NULL))
+  }
+  
+  for (root in 2:(n ^ (1 / power))) {
+    result <- root^power
+    if (result == n) {
+      return(list(isPerfect = TRUE, root = root))
+    } else if (result > n) {
+      break
+    }
+  }
+  
+  return(list(isPerfect = FALSE, root = NULL))
+}
+isPerfectPower(27, power = 3)
+```
+
+### b.
+
+```{r}
+findRootPower <- function(n) {
+  for (power in 2:100) { 
+    result <- isPerfectPower(n, power)
+    if (result[[1]]) {
+      return(paste(n, "=", result[[2]], "^", power))
+    }
+  }
+  return(paste(n, "is not a perfect power"))
+}
+```
+
+#### 1
+
+```{r}
+findRootPower(27)
+```
+
+#### 2.
+
+```{r}
+findRootPower(13060694016)
+```
+
+#### 3.
+
+```{r}
+findRootPower(7776)
+```
+
+#### 4.
+
+```{r}
+findRootPower(170859375)
+```
+
+#### 5.
+
+```{r}
+findRootPower(58247422)
+```
+
+#### 6.
+
+```{r}
+findRootPower(94143178827)
+```
+
+## Problem 3
+
+### a.
+
+Here are two R functions: one to determine the name of a hand in 5-card stud poker, and another to simulate dealing a round of cards in a game of poker with a specified number of players.
+
+```{r}
+# Function to determine the name of a poker hand
+determine_poker_hand <- function(suits, ranks) {
+  # Function to count the frequency of each rank
+  count_ranks <- function(ranks) {
+    rank_count <- table(ranks)
+    return(rank_count)
+  }
+  
+  # Sort the ranks in descending order of frequency
+  sorted_ranks <- sort(count_ranks(ranks), decreasing = TRUE)
+  
+  # Check for specific poker hands
+  is_flush <- length(unique(suits)) == 1
+  is_straight <- all(diff(sorted_ranks) == 1)
+  
+  if (is_flush && is_straight) {
+    if (max(sorted_ranks) == 14) {
+      return("Royal Flush")
+    } else {
+      return("Straight Flush")
+    }
+  } else if (max(sorted_ranks) == 4) {
+    return("Four of a Kind")
+  } else if (max(sorted_ranks) == 3 && length(sorted_ranks) == 2) {
+    return("Full House")
+  } else if (is_flush) {
+    return("Flush")
+  } else if (is_straight) {
+    return("Straight")
+  } else if (max(sorted_ranks) == 3) {
+    return("Three of a Kind")
+  } else if (max(sorted_ranks) == 2 && length(sorted_ranks) == 3) {
+    return("Two Pair")
+  } else if (max(sorted_ranks) == 2) {
+    return("One Pair")
+  } else {
+    return("High Card")
+  }
+}
+
+# Function to simulate dealing a round of poker with a specified number of players
+deal_poker_round <- function(num_players) {
+  # Define the suits and ranks
+  suits <- c("Hearts", "Diamonds", "Clubs", "Spades")
+  ranks <- c(2:10, "Jack", "Queen", "King", "Ace")
+  
+  # Create a deck of cards
+  deck <- expand.grid(rank = ranks, suit = suits)
+  
+  # Shuffle the deck
+  deck <- deck[sample(nrow(deck)), ]
+  
+  # Deal cards to each player
+  hands <- split(deck, factor(rep(1:num_players, each = 5)))
+  
+  # Determine and display the name of each hand
+  for (i in 1:num_players) {
+    player_hand <- hands[[i]]
+    player_suits <- player_hand$suit
+    player_ranks <- player_hand$rank
+    cat("Player", i, "Hand:", paste(player_ranks, player_suits, sep = " "), "\n")
+    cat("Hand Name:", determine_poker_hand(player_suits, player_ranks), "\n\n")
+  }
+}
+
+# Example usage:
+deal_poker_round(4)  # Simulate a round of poker with 4 players
+
+```
+
+This code defines two functions. The determine_poker_hand function takes vectors of suits and ranks and determines the name of the poker hand. The deal_poker_round function simulates dealing a round of poker with a specified number of players and displays the hands along with their names using the determine_poker_hand function.
+
+### b.
+
+It can run without error.
+
+```{r}
+determine_poker_hand(5,20)
+determine_poker_hand(6,10)
+determine_poker_hand(2,5)
+determine_poker_hand(3,9)
+deal_poker_round(4)
+deal_poker_round(8)
+deal_poker_round(1)
+deal_poker_round(6)
+```
+
+### c.
+
+```{r}
+determine_poker_hand <- function(suits, ranks) { # Function to determine the name of a poker hand
+  count_ranks <- function(ranks) { # Function to count the frequency of each rank
+    rank_count <- table(ranks) # Build a table
+    return(rank_count) # Return the results
+  }
+  
+  sorted_ranks <- sort(count_ranks(ranks), decreasing = TRUE)# Sort the ranks in descending order of frequency
+  
+  is_flush <- length(unique(suits)) == 1 # Check for specific poker hands
+  is_straight <- all(diff(sorted_ranks) == 1) # Check if the ranks form a straight
+  
+  if (is_flush && is_straight) { # If it is both flush and straight
+    if (max(sorted_ranks) == 14) { # If the max sorted_ranks equals 14
+      return("Royal Flush") # Return result "Royal Flush"
+    } else {
+      return("Straight Flush") # Return result "Straight Flush"
+    }
+  } else if (max(sorted_ranks) == 4) { # Check if the maximum value of sorted_ranks is 4
+    return("Four of a Kind") # Return result "Four of a Kind"
+  } else if (max(sorted_ranks) == 3 && length(sorted_ranks) == 2) { # Check if the maximum value of sorted_ranks is 3 and st the same time the length of sorted_ranks is 2
+    return("Full House") # Return result "Full House"
+  } else if (is_flush) { # Check if it is flush
+    return("Flush") # Return result "Flush"
+  } else if (is_straight) { # Check if it is straight
+    return("Straight") # Return result "Straight"
+  } else if (max(sorted_ranks) == 3) { # Check if the maximum value of sorted_ranks is 3
+    return("Three of a Kind") # Return result "Three of a Kind"
+  } else if (max(sorted_ranks) == 2 && length(sorted_ranks) == 3) { # Check if the maximum value of sorted_ranks is 2 and st the same time the length of sorted_ranks is 3
+    return("Two Pair") # Return result "Two Pair"
+  } else if (max(sorted_ranks) == 2) { # Check if the maximum value of sorted_ranks is 2
+    return("One Pair") # Return result "One Pair"
+  } else { # Check if all the above cases do not happen 
+    return("High Card") # Return result "High Card"
+  }
+}
+
+deal_poker_round <- function(num_players) { # Function to simulate dealing a round of poker with a specified number of players
+  suits <- c("Hearts", "Diamonds", "Clubs", "Spades") # Define the suits
+  ranks <- c(2:10, "Jack", "Queen", "King", "Ace") # Define the ranks
+  
+  deck <- expand.grid(rank = ranks, suit = suits) # Create a deck of cards
+  
+  deck <- deck[sample(nrow(deck)), ] # Shuffle the deck
+  
+  hands <- split(deck, factor(rep(1:num_players, each = 5))) # Deal cards to each player
+  
+  for (i in 1:num_players) { # Determine and display the name of each hand
+    player_hand <- hands[[i]] # Assign the ith element in hands to player_hand
+    player_suits <- player_hand$suit # Assign the value of suit in player_hand to player_suits
+    player_ranks <- player_hand$rank # Assign the value of rank in player_hand to player_ranks
+    cat("Player", i, "Hand:", paste(player_ranks, player_suits, sep = " "), "\n") # Print results
+    cat("Hand Name:", determine_poker_hand(player_suits, player_ranks), "\n\n") # Print results
+  }
+}
+
+# Example usage:
+deal_poker_round(4)  # Simulate a round of poker with 4 players
+
+```
+
+### d.
+
+The code does produce accurate results. The inputs and outputs are as described above. The hands are also valid, it is real cards, and there are no duplicates, and it is the right number. The names of the hands are correct. It ensures no duplicates in cards across hands. It can not be asked for more than 10 hands to be dealt, because the deck is defined by suits and ranks and both suits and ranks have it's ranges.
+
+```{r}
+set.seed(123)
+deal_poker_round(4)
+```
+
+```{r}
+deal_poker_round(10)
+```
+
+```{r}
+deal_poker_round <- function(num_players) {
+  if (num_players * 5 > 52) {
+    cat("Error: Too many players for a standard deck of cards.\n")
+    return()
+  }
+}
+```
