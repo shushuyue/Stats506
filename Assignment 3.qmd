@@ -1,0 +1,435 @@
+---
+title: "Assignment 3"
+format:
+  html:
+    embed-resources: true
+---
+
+## Problem 1
+
+### a.
+
+``` stata
+*read file in stata
+. import sasxport5 "DEMO_D.XPT", clear
+
+. save "DEMO_D.dta", replace
+(file DEMO_D.dta not found)
+file DEMO_D.dta saved
+```
+
+``` stata
+. use "VIX_D.dta", clear
+
+. merge 1:1 seqn using "DEMO_D.dta"
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                         3,368
+        from master                         0  (_merge==1)
+        from using                      3,368  (_merge==2)
+
+    Matched                             6,980  (_merge==3)
+    -----------------------------------------
+
+. keep if _merge==3
+(3,368 observations deleted)
+
+. count
+  6,980
+```
+
+### b.
+
+``` stata
+* Generate age brackets
+. egen age_bracket = cut(ridageyr), at(0(10)90) label
+
+* generate a table displaying the proportions for "1" (Yes), "2" (No), "9" (Don't know)
+. tabulate age_bracket viq220, row nofreq
+
+           | Glasses/contact lenses worn for
+age_bracke |             distance
+         t |         1          2          9 |     Total
+-----------+---------------------------------+----------
+       10- |     32.09      67.91       0.00 |    100.00 
+       20- |     32.59      67.20       0.21 |    100.00 
+       30- |     35.87      64.13       0.00 |    100.00 
+       40- |     37.00      63.00       0.00 |    100.00 
+       50- |     55.01      44.99       0.00 |    100.00 
+       60- |     62.22      37.78       0.00 |    100.00 
+       70- |     66.89      33.11       0.00 |    100.00 
+       80- |     66.88      33.12       0.00 |    100.00 
+-----------+---------------------------------+----------
+     Total |     42.23      57.74       0.03 |    100.00 
+```
+
+### c.
+
+``` stata
+* replace value 2 to 0 because in logistic regression, 0 = negative outcome,all other nonmissing values = positive outcome
+. replace viq220 = 0 if viq220 ==2
+(3,780 real changes made)
+. replace viq220 = . if viq220 ==9
+(2 real changes made, 2 to missing)
+```
+
+``` stata
+* Fit three models and calculate AIC 
+. logit viq220 ridageyr,or
+
+Iteration 0:  Log likelihood = -4457.6265  
+Iteration 1:  Log likelihood = -4236.2351  
+Iteration 2:  Log likelihood = -4235.9433  
+Iteration 3:  Log likelihood = -4235.9433  
+
+Logistic regression                                     Number of obs =  6,545
+                                                        LR chi2(1)    = 443.37
+                                                        Prob > chi2   = 0.0000
+Log likelihood = -4235.9433                             Pseudo R2     = 0.0497
+
+------------------------------------------------------------------------------
+      viq220 | Odds ratio   Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+    ridageyr |    1.02498   .0012356    20.47   0.000     1.022561    1.027405
+       _cons |    .283379   .0151461   -23.59   0.000     .2551952    .3146755
+------------------------------------------------------------------------------
+Note: _cons estimates baseline odds.
+
+. estat ic
+
+Akaike's information criterion and Bayesian information criterion
+
+-----------------------------------------------------------------------------
+       Model |          N   ll(null)  ll(model)      df        AIC        BIC
+-------------+---------------------------------------------------------------
+           . |      6,545  -4457.627  -4235.943       2   8475.887    8489.46
+-----------------------------------------------------------------------------
+Note: BIC uses N = number of observations. See [R] IC note.
+
+. estimates store model1
+
+. logit viq220 ridageyr i.ridreth1 i.riagendr, or
+
+Iteration 0:  Log likelihood = -4457.6265  
+Iteration 1:  Log likelihood = -4138.3859  
+Iteration 2:  Log likelihood = -4136.8807  
+Iteration 3:  Log likelihood = -4136.8805  
+
+Logistic regression                                     Number of obs =  6,545
+                                                        LR chi2(6)    = 641.49
+                                                        Prob > chi2   = 0.0000
+Log likelihood = -4136.8805                             Pseudo R2     = 0.0720
+
+------------------------------------------------------------------------------
+      viq220 | Odds ratio   Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+    ridageyr |   1.022831   .0012912    17.88   0.000     1.020303    1.025365
+             |
+    ridreth1 |
+          2  |   1.169203    .192081     0.95   0.341     .8473273    1.613349
+          3  |   1.952149   .1366952     9.55   0.000     1.701803    2.239322
+          4  |    1.29936   .0995052     3.42   0.001     1.118264    1.509783
+          5  |   1.917442   .2596352     4.81   0.000     1.470495    2.500236
+             |
+  2.riagendr |    1.65217   .0875831     9.47   0.000     1.489127    1.833064
+       _cons |   .1593479   .0124169   -23.57   0.000     .1367784    .1856414
+------------------------------------------------------------------------------
+Note: _cons estimates baseline odds.
+
+. estat ic
+
+Akaike's information criterion and Bayesian information criterion
+
+-----------------------------------------------------------------------------
+       Model |          N   ll(null)  ll(model)      df        AIC        BIC
+-------------+---------------------------------------------------------------
+           . |      6,545  -4457.627   -4136.88       7   8287.761   8335.266
+-----------------------------------------------------------------------------
+Note: BIC uses N = number of observations. See [R] IC note.
+
+. estimates store model2
+
+. logit viq220 ridageyr i.ridreth1 i.riagendr indfmpir, or
+
+Iteration 0:  Log likelihood = -4259.5533  
+Iteration 1:  Log likelihood = -3948.3256  
+Iteration 2:  Log likelihood = -3946.9043  
+Iteration 3:  Log likelihood = -3946.9041  
+
+Logistic regression                                     Number of obs =  6,247
+                                                        LR chi2(7)    = 625.30
+                                                        Prob > chi2   = 0.0000
+Log likelihood = -3946.9041                             Pseudo R2     = 0.0734
+
+------------------------------------------------------------------------------
+      viq220 | Odds ratio   Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+    ridageyr |   1.022436    .001324    17.14   0.000     1.019845    1.025035
+             |
+    ridreth1 |
+          2  |   1.123021   .1889653     0.69   0.490     .8075333    1.561764
+          3  |   1.651244   .1240886     6.67   0.000     1.425098    1.913277
+          4  |   1.230456   .0974736     2.62   0.009     1.053503     1.43713
+          5  |   1.703572   .2387583     3.80   0.000     1.294384    2.242114
+             |
+  2.riagendr |   1.675767   .0910025     9.51   0.000      1.50657    1.863967
+    indfmpir |   1.120301   .0198376     6.42   0.000     1.082087    1.159865
+       _cons |   .1331659   .0116903   -22.97   0.000     .1121161    .1581678
+------------------------------------------------------------------------------
+Note: _cons estimates baseline odds.
+
+. estat ic
+
+Akaike's information criterion and Bayesian information criterion
+
+-----------------------------------------------------------------------------
+       Model |          N   ll(null)  ll(model)      df        AIC        BIC
+-------------+---------------------------------------------------------------
+           . |      6,247  -4259.553  -3946.904       8   7909.808   7963.727
+-----------------------------------------------------------------------------
+Note: BIC uses N = number of observations. See [R] IC note.
+
+. estimates store model3
+```
+
+``` stata
+* Create a table contains results required
+. esttab model1 model2 model3, eform cells(b(fmt(4))) stats(N r2_p aic, labels("Sample Size"  "Pseudo R^2" "AIC"))
+>  mtitle("Model 1" "Model 2" "Model 3") label
+
+-----------------------------------------------------------
+                              (1)          (2)          (3)
+                          Model 1      Model 2      Model 3
+                                b            b            b
+-----------------------------------------------------------
+Glasses/contact le~                                        
+Age at Screening A~R       1.0250       1.0228       1.0224
+Race/Ethnicity - R~1                    1.0000       1.0000
+Race/Ethnicity - R~2                    1.1692       1.1230
+Race/Ethnicity - R~3                    1.9521       1.6512
+Race/Ethnicity - R~4                    1.2994       1.2305
+Race/Ethnicity - R~5                    1.9174       1.7036
+Gender=1                                1.0000       1.0000
+Gender=2                                1.6522       1.6758
+Family PIR                                           1.1203
+-----------------------------------------------------------
+Sample Size             6545.0000    6545.0000    6247.0000
+Pseudo R^2                 0.0497       0.0720       0.0734
+AIC                     8475.8866    8287.7609    7909.8082
+-----------------------------------------------------------
+Exponentiated coefficients
+```
+
+### d.
+
+``` stata
+* Odds:
+* The odd of men is 1, which is set as the base in this case. Odds equals p(success)/p(failure) = 1. Therefore the probability of men wearing glasess/contact lenses for distance vision or not is equal. In other words, men have 50% probability wearing glasses/contact.
+* The odds of women is 1.6758. Odds equals p(success)/(1-p(success)) = 1.6758. Therefore the probability of women wearing glasess/contact lenses for distance vision is 62.6%.
+* Odds Ratio = 1/1.6758 = 0.597. Therefore, for a male, the odds of wearing glasess/contact lenses for distance vision are 0.597 times as small as the odds for a female wearing glasess/contact lenses for distance vision. In other words, for a female, the odds of wearing glasess/contact lenses for distance vision are 1.6758 times as large as the odds for a male wearing glasess/contact lenses for distance vision
+
+* Proportion:
+. tabulate riagendr viq220, row
+
++----------------+
+| Key            |
+|----------------|
+|   frequency    |
+| row percentage |
++----------------+
+
+           |    Glasses/contact
+           |    lenses worn for
+           |       distance
+    Gender |         0          1 |     Total
+-----------+----------------------+----------
+         1 |     2,014      1,181 |     3,195 
+           |     63.04      36.96 |    100.00 
+-----------+----------------------+----------
+         2 |     1,766      1,584 |     3,350 
+           |     52.72      47.28 |    100.00 
+-----------+----------------------+----------
+     Total |     3,780      2,765 |     6,545 
+           |     57.75      42.25 |    100.00 
+ 
+
+* From the table above, 
+  36.96% of male wear glasses/contact lenses for distance vision,
+  63.04% of male do not wear glasses/contact lenses for distance vision,
+  47.28% of female wear glasses/contact lenses for distance vision,
+  52.72% of female do not wear glasses/contact lenses for distance vision,
+  Overall, there are 42.71% of male and 57.29% female of wearers of glasses/contact lenses for distance vision.
+
+*In conclusion, male is less likely to wear glasses/contact lenses for distance vision than women. the result of proportion is the same as the result of odds ratio.
+```
+
+## Problem 2
+
+```{r}
+# Load the data into a data frame using RSQLite
+library(DBI)
+sakila <- dbConnect(RSQLite::SQLite(), "sakila_master.db")
+dbListTables(sakila)
+gg <- function(x) {
+  dbGetQuery(sakila, x)
+}
+```
+
+### a.
+
+#### SQL
+
+```{r}
+gg("
+SELECT language.name, COUNT(*) AS count
+FROM film
+JOIN language ON film.language_id = language.language_id
+GROUP BY language.name
+ORDER BY count DESC
+")
+```
+
+As we can see from the result, there is no language which is most common for films aside from English.
+
+### b.
+
+#### SQL
+
+```{r}
+gg("
+SELECT category.name, COUNT(*) AS count
+FROM film
+JOIN film_category ON film.film_id = film_category.film_id
+JOIN category ON film_category.category_id = category.category_id
+GROUP BY category.name
+ORDER BY count DESC
+LIMIT 1;
+")
+```
+
+#### R
+
+```{r}
+films <- gg("SELECT * FROM film_category")
+category <- gg("SELECT * FROM category")
+# Find the most common genre
+genre_counts <- table(films$category_id)
+top_genreID <- names(genre_counts)[which.max(genre_counts)]
+
+# Find the genre name of most common genre id
+top_genrename <- category$name[category$category_id == top_genreID]
+genre_counts
+top_genreID
+top_genrename
+```
+
+Sports is the most common genre in the data, and there are 74 movies of this genre.
+
+### c.
+
+#### SQL
+
+```{r}
+gg("
+SELECT country, COUNT(*) AS count
+FROM customer_list
+GROUP BY country
+HAVING count = 9
+")
+```
+
+#### R
+
+```{r}
+customer <- gg("SELECT * FROM customer_list")
+country_counts <- table(customer$country)
+customers9 <- names(country_counts[country_counts == 9])
+customers9
+```
+
+United Kingdom has exactly 9 customers.
+
+## Problem 3
+
+```{r}
+us500 <- read.csv("us-500.csv")
+```
+
+```{r}
+library(dplyr)
+```
+
+### a.
+
+```{r}
+prop1 <- us500 %>%
+  filter(grepl("@[[:alnum:]_.]+\\.net", email)) %>%
+  nrow() / nrow(us500)
+prop1
+```
+
+The proportion of email addresses are hosted at a domain with TLD \".net" is 14%
+
+### b.
+
+```{r}
+prop2 <- us500 %>%
+  filter(grepl("[^[:alnum:]@.]", email)) %>%
+  nrow() / nrow(us500)
+prop2
+```
+
+The proportion of email addresses have at least one non alphanumeric character in them is 24.8%
+
+### c.
+
+```{r}
+phone <- c(us500$phone1, us500$phone2)
+area_code <- substr(phone, 1, 3)
+codes_count <- table(area_code)
+which.max(codes_count)
+```
+
+The most common area code amongst all phone numbers is 973.
+
+### d.
+
+```{r}
+apartment_num <- gsub(".*#(\\d+)", "\\1", us500$address)
+number = as.numeric(apartment_num)
+hist(log(number), main = "Log of Apartment Numbers", xlab = "Log(Apartment Number)")
+
+```
+
+### e.
+
+```{r}
+digits <- substr(apartment_num, 1, 1)
+digits_counts <- table(digits)
+#apartment number proportion in data
+actual_prob <- digits_counts/sum(digits_counts)
+actual_prob
+```
+
+The Benford's law of proportions of leading apartment numbers are 0.301, 0.176, 0.125, 0.097, 0.079, 0.067,0.058, 0.051, 0.046, which is decreasingly distributed.
+
+But the actual proportions of leading apartment numbers are 0.112, 0.120, 0.122, 0.114, 0.096, 0.110, 0.114, 0.090, 0.122, which is equally distributed.
+
+It is obviously that the apartment numbers do not follow the Benford's law and the apartment numbers would not pass as real data.
+
+### f.
+
+```{r}
+street_num <- as.numeric(sub("^(.*?)\\s.*", "\\1", apartment_num))
+last_digits <- street_num %% 10
+last_counts <- table(last_digits)
+last_prob <- last_counts/sum(last_counts)
+last_prob
+```
+
+The Benford's law of proportions of last numbers are nearly 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, which is equally distributed.
+
+The actual proportions of last street numbers are 0.084 0.088 0.128 0.110 0.104 0.092 0.080 0.096 0.080 0.138, which is nearly equally distributed.
+
+Therefore the last street numbers follow the Benford's law and the street numbers would pass as real data.
