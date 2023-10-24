@@ -1,0 +1,482 @@
+---
+title: "Assignment 4"
+format:
+  html:
+    embed-resources: true
+---
+
+## Problem 1
+
+### a.
+
+```{r}
+library(nycflights13)
+library(dplyr)
+```
+
+```{r}
+#departure delay per airport
+departure <- flights %>%
+  group_by(origin) %>%
+  summarize(
+    total_flight = n(),
+    mean_departure = mean(dep_delay, na.rm = TRUE),
+    median_departure = median(dep_delay, na.rm = TRUE)
+  ) %>%
+  filter(total_flight >= 10) %>%
+  arrange(-mean_departure) %>%
+  left_join(airports, by = c("origin" = "faa")) %>%
+  select(airport = name, mean_departure, median_departure) %>%
+  print(n = Inf)
+
+#arrival delay per airport
+arrival <- flights %>%
+  group_by(dest) %>%
+  summarize(
+    total_flight = n(),
+    mean_arrival = mean(arr_delay, na.rm = TRUE),
+    median_arrival = median(arr_delay, na.rm = TRUE)
+  ) %>%
+  filter(total_flight >= 10) %>%
+  arrange(-mean_arrival) %>%
+  left_join(airports, by = c("dest" = "faa")) %>%
+  select(airport = name, mean_arrival, median_arrival) %>%
+  print(n = Inf)
+```
+
+### b.
+
+```{r}
+join_flights_planes <- flights %>%
+  left_join(planes, by = "tailnum")
+```
+
+```{r}
+#average speed for each model
+speed <- join_flights_planes %>%
+  group_by(model) %>%
+  summarize(
+    speed_mph = sum(distance) / sum(air_time) * 60
+  )
+
+#find the aircraft model
+fastest <- speed %>%
+  filter(!is.na(speed_mph)) %>%
+  arrange(desc(speed_mph)) %>%
+  slice(1)
+
+#count the number of flights
+num_flights <- join_flights_planes %>%
+  filter(model == fastest$model) %>%
+  nrow()
+
+#create a tibble
+fastest_aircraft <- tibble(
+  model = fastest$model,
+  average_speed_mph = fastest$speed_mph,
+  num_flights = num_flights
+)
+
+fastest_aircraft
+```
+
+## Problem 2
+
+```{r}
+nnmaps <- read.csv("chicago-nmmaps.csv")
+```
+
+```{r}
+get_temp <- function(month, year, data, celsius = FALSE, average_fn = mean) {
+  #sanitize input of month
+  month_all <- c("January","February","March","April","May","June","July","August","September","October","November","December","Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec")
+  if (is.numeric(month) && month >= 1 && month <= 12) {
+    m = month
+    y = year
+    filtered_data <- data %>%
+      filter(year == y, month_numeric == m)
+  } else if (is.character(month) && month %in% month_all) {
+    m = month
+    y = year
+    n <- substr(m, 1, 3)
+    filtered_data <- data %>%
+      filter(year == y, month == n)
+  } else {
+    return("Invalid month argument.")
+  }
+
+  if (nrow(filtered_data) == 0) {
+    return("No data available for the specified month and year.")
+  }
+
+  #calculate the average temperature
+  avg_temp <- average_fn(filtered_data$temp)
+
+  #convert to Celsius
+  if (celsius) {
+    avg_temp <- (avg_temp - 32) * 5/9
+  }
+
+  return(avg_temp)
+}
+```
+
+```{r}
+get_temp("Apr", 1999, data = nnmaps)
+get_temp("Apr", 1999, data = nnmaps, celsius = TRUE)
+get_temp(10, 1998, data = nnmaps, average_fn = median)
+get_temp(13, 1998, data = nnmaps)
+get_temp(2, 2005, data = nnmaps)
+get_temp("November", 1999, data =nnmaps, celsius = TRUE,
+         average_fn = function(x) {
+           x %>% sort -> x
+           x[2:(length(x) - 1)] %>% mean %>% return
+         })
+```
+
+## Problem 3
+
+### a.
+
+``` SAS
+%let in_path = /home/u63652440/my_shared_file_links/u63652440;
+libname in_lib "&in_path."; 
+
+proc import datafile="&in_path./recs2020_public_v5.csv" out=recs replace;
+
+proc surveyfreq data=recs;
+    tables state_name; 
+    weight NWEIGHT; 
+    ods output OneWayFreqs=StateFreq;
+run;
+```
+
+### b.
+
+``` SAS
+data positive_cost;
+    set recs;
+    where DOLLAREL > 0;
+run;
+
+proc sgplot data=positive_cost;
+    histogram DOLLAREL;
+run;
+```
+
+### c.
+
+``` SAS
+data log_cost;
+    set positive_cost;
+    log_DOLLAREL = log(DOLLAREL);
+run;
+
+proc sgplot data=log_cost;
+    histogram log_DOLLAREL;
+run;
+```
+
+### d.
+
+``` SAS
+data recs_mod;
+    set log_cost;
+    if PRKGPLC1 = -2 then delete; 
+    total_rooms = TOTROOMS + NCOMBATH + NHAFBATH;
+    if PRKGPLC1 = 1 then garage = 1;
+    else if PRKGPLC1 = 0 then garage = 0;
+run;
+
+proc surveyreg data=recs_mod;
+    model log_DOLLAREL = total_rooms garage;
+    weight NWEIGHT;
+    output out=recs_pred p=pred_log_elec_cost;
+run;
+```
+
+### e.
+
+``` SAS
+data recs_for_plot;
+    set recs_pred; 
+    Pred_elec_cost = exp(pred_log_elec_cost); 
+   
+run;
+
+proc sgplot data=recs_for_plot;
+    scatter x=DOLLAREL y=Pred_elec_cost / markerattrs=(symbol=CircleFilled);
+    xaxis label='Actual Electricity Cost';
+    yaxis label='Predicted Electricity Cost';
+run;
+```
+
+## Problem 4
+
+### a.
+
+The codebook is very clear with detailed information for each variables, including the description, data type, data range, unique values, and tabulation.
+
+### b.
+
+``` SAS
+%let in_path = /home/u63652440/my_shared_file_links/u63652440;
+libname in_lib "&in_path."; 
+
+proc import datafile="&in_path./public2022.csv" out=public2022 replace;
+```
+
+``` SAS
+proc sql;
+create table pub as
+select CaseID, weight_pop, B3, ND2, B7_b, GH1, race_5cat, educ_4cat
+from public2022;
+run;
+```
+
+### c.
+
+``` SAS
+proc export data=pub
+outfile="&in_path./public2022.dta"
+dbms=stata replace;
+run;
+```
+
+### d.
+
+``` stata
+. do "/var/folders/s8/v85ct0fd4tb4zxt_7j_9mt8m0000gn/T//SD65564.000000"
+
+. count
+  11,667
+
+. describe
+
+Contains data from /Users/shengshuyue/Desktop/Stats 506/Assignment 4/public2022.dta
+ Observations:        11,667                  
+    Variables:             8                  
+------------------------------------------------------------------------------------------------------------------
+Variable      Storage   Display    Value
+    name         type    format    label      Variable label
+------------------------------------------------------------------------------------------------------------------
+CaseID          double  %12.0g                
+weight_pop      double  %12.0g                
+B3              str22   %22s                  
+ND2             str18   %18s                  
+B7_b            str12   %12s                  
+GH1             str60   %60s                  
+race_5cat       str10   %10s                  
+educ_4cat       str46   %46s                  
+------------------------------------------------------------------------------------------------------------------
+Sorted by: 
+
+```
+
+There are 11,667 observations and 8 variables in the dataset.
+
+### e.
+
+``` stata
+. gen B3_encoded = .
+(11,667 missing values generated)
+
+. replace B3_encoded = 0 if B3 == "Much worse off"
+(1,020 real changes made)
+
+. replace B3_encoded = 0 if B3 == "Somewhat worse off"
+(3,276 real changes made)
+
+. replace B3_encoded = 1 if B3 == "About the same"
+(5,287 real changes made)
+
+. replace B3_encoded = 1 if B3 == "Somewhat better off"
+(1,605 real changes made)
+
+. replace B3_encoded = 1 if B3 == "Much better off"
+(479 real changes made)
+
+. 
+. gen ND2_encoded = .
+(11,667 missing values generated)
+
+. replace ND2_encoded = 1 if ND2 == "Much higher"
+(1,065 real changes made)
+
+. replace ND2_encoded = 2 if ND2 == "Somewhat higher"
+(2,915 real changes made)
+
+. replace ND2_encoded = 3 if ND2 == "About the same"
+(7,201 real changes made)
+
+. replace ND2_encoded = 4 if ND2 == "Somewhat lower"
+(200 real changes made)
+
+. replace ND2_encoded = 5 if ND2 == "Much lower"
+(286 real changes made)
+
+. 
+. gen B7b_encoded = .
+(11,667 missing values generated)
+
+. replace B7b_encoded = 1 if B7_b == "Poor"
+(4,200 real changes made)
+
+. replace B7b_encoded = 2 if B7_b == "Only fair"
+(5,411 real changes made)
+
+. replace B7b_encoded = 3 if B7_b == "Good"
+(1,952 real changes made)
+
+. replace B7b_encoded = 4 if B7_b == "Excellent"
+(104 real changes made)
+
+. 
+. gen GH1_encoded = .
+(11,667 missing values generated)
+
+. replace GH1_encoded = 1 if GH1 == "Own your home with a mortgage or loan"
+(4,982 real changes made)
+
+. replace GH1_encoded = 2 if GH1 == "Own your home free and clear (without a mortgage or loan)"
+(2,933 real changes made)
+
+. replace GH1_encoded = 3 if GH1 == "Pay rent"
+(2,931 real changes made)
+
+. replace GH1_encoded = 4 if GH1 == "Neither own nor pay rent"
+(821 real changes made)
+
+. 
+. gen race_encoded = .
+(11,667 missing values generated)
+
+. replace race_encoded = 1 if race_5cat == "White"
+(8,060 real changes made)
+
+. replace race_encoded = 2 if race_5cat == "Black"
+(1,225 real changes made)
+
+. replace race_encoded = 3 if race_5cat == "Hispanic"
+(1,464 real changes made)
+
+. replace race_encoded = 4 if race_5cat == "Asian"
+(464 real changes made)
+
+. replace race_encoded = 5 if race_5cat == "Other"
+(454 real changes made)
+
+. 
+. gen educ_encoded = .
+(11,667 missing values generated)
+
+. replace educ_encoded = 1 if educ_4cat == "Less than a high school degree"
+(531 real changes made)
+
+. replace educ_encoded = 2 if educ_4cat == "High school degree or GED"
+(2,290 real changes made)
+
+. replace educ_encoded = 3 if educ_4cat == "Some college/technical or associates degree"
+(3,824 real changes made)
+
+. replace educ_encoded = 4 if educ_4cat == "Bachelor's degree or more"
+(5,022 real changes made)
+
+. 
+end of do-file
+```
+
+### f.
+
+``` stata
+. svyset CaseID [pw=weight_pop]
+
+Sampling weights: weight_pop
+             VCE: linearized
+     Single unit: missing
+        Strata 1: <one>
+ Sampling unit 1: CaseID
+           FPC 1: <zero>
+```
+
+``` stata
+. svy: logistic B3_encoded i.ND2_encoded i.B7b_encoded i.GH1_encoded i.race_encoded i.educ_encoded
+(running logistic on estimation sample)
+
+Survey: Logistic regression
+
+Number of strata =      1                        Number of obs   =      11,667
+Number of PSUs   = 11,667                        Population size = 255,114,223
+                                                 Design df       =      11,666
+                                                 F(17, 11650)    =       57.08
+                                                 Prob > F        =      0.0000
+
+------------------------------------------------------------------------------
+             |             Linearized
+  B3_encoded | Odds ratio   std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+ ND2_encoded |
+          2  |   1.085264   .1004103     0.88   0.377     .9052586    1.301062
+          3  |   1.068285   .0911387     0.77   0.439     .9037764    1.262738
+          4  |   1.298803   .2656084     1.28   0.201     .8698664    1.939252
+          5  |   1.268982    .211473     1.43   0.153     .9153563    1.759224
+             |
+ B7b_encoded |
+          2  |   3.023388   .1478851    22.62   0.000     2.746971    3.327619
+          3  |   6.053997   .4822353    22.61   0.000     5.178836    7.077051
+          4  |   11.91989   4.109229     7.19   0.000     6.064588    23.42845
+             |
+ GH1_encoded |
+          2  |    .938628   .0530243    -1.12   0.262     .8402394    1.048538
+          3  |   1.025434   .0602294     0.43   0.669     .9139174    1.150559
+          4  |   1.422547    .140974     3.56   0.000     1.171397    1.727545
+             |
+race_encoded |
+          2  |   2.031276   .1647816     8.74   0.000     1.732648    2.381373
+          3  |   1.183977   .0847211     2.36   0.018      1.02903    1.362255
+          4  |   1.562447   .1970896     3.54   0.000     1.220175    2.000729
+          5  |   .9875135    .163249    -0.08   0.939     .7141897     1.36544
+             |
+educ_encoded |
+          2  |   1.119783   .1303859     0.97   0.331     .8912739     1.40688
+          3  |   1.178032   .1311927     1.47   0.141     .9470055    1.465419
+          4  |   1.360402     .15108     2.77   0.006     1.094276    1.691249
+             |
+       _cons |   .5763645   .0791819    -4.01   0.000     .4402969    .7544819
+------------------------------------------------------------------------------
+Note: _cons estimates baseline odds.
+```
+
+### g.
+
+``` stata
+. export delimited "p4.csv"
+file p4.csv saved
+```
+
+### h.
+
+```{r}
+library(survey)
+```
+
+```{r}
+public <- read.csv("p4.csv")
+```
+
+```{r}
+sd <- svydesign(id = ~ CaseID, weight = ~ weight_pop, data = public)
+sdlm <- svyglm(B3_encoded ~ factor(ND2_encoded) + factor(B7b_encoded) + factor(GH1_encoded) +
+factor(race_encoded) + factor(educ_encoded), design = sd, family = quasibinomial())
+```
+
+```{r}
+summary(sdlm)
+```
+
+```{r}
+pseudo_R <- 1 - (sdlm$deviance / sdlm$null.deviance)
+pseudo_R
+```
+
+The pseudo-R\^2 value is 0.09010785
