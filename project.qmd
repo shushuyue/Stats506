@@ -1,0 +1,73 @@
+---
+title: "Project"
+format:
+  html:
+    embed-resources: true
+---
+
+## **Clean Data**
+
+```{r}
+library(readr)
+library(dplyr)
+
+data <- read.csv('cbecs2018_final_public.csv')
+
+data <- data %>%
+        filter(!is.na(PBA) & !is.na(ELCNS) & !is.na(ELEXP))
+data <- select(data, PBA, ELCNS, ELEXP, REGION, PUBCLIM, WLCNS, SQFT)
+data$REGION <- as.factor(data$REGION)
+data$PUBCLIM <- as.factor(data$PUBCLIM)
+data$WLCNS <- as.factor(data$WLCNS)
+data$PBA <- as.factor(data$PBA)
+```
+
+```{r}
+library(ggplot2)
+summary(data)
+ggplot(data, aes(x = PBA, y = ELCNS)) + 
+    geom_boxplot() +
+    theme_minimal() +
+    labs(title = "Electricity Consumption by Building Type", x = "Building Type", y = "Electricity Consumption")
+
+```
+
+## Comparative Analysis
+
+```{r}
+# ANOVA
+anova_result <- aov(ELCNS ~ PBA, data = data)
+summary(anova_result)
+
+```
+
+```{r}
+TukeyHSD(anova_result)
+```
+
+## Linear Regression
+
+```{r}
+lm_model <- lm(ELCNS ~ PBA + REGION + PUBCLIM + SQFT + WLCNS, data = data)
+
+summary(lm_model)
+```
+
+```{r}
+vif(lm_model)
+```
+
+```{r}
+plot(lm_model$residuals)
+hist(lm_model$residuals)
+```
+
+```{r}
+library(dplyr)
+
+mean_elcns <- data %>%
+  group_by(PBA) %>%
+  summarise(mean_ELCNS = mean(ELCNS, na.rm = TRUE)) %>%
+  arrange(desc(mean_ELCNS))
+mean_elcns
+```

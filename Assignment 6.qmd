@@ -1,0 +1,110 @@
+---
+title: "Assignment 6"
+format:
+  html:
+    embed-resources: true
+---
+
+## **Stratified Bootstrapping**
+
+```{r}
+library(boot)
+library(nycflights13)
+library(dplyr)
+library(purrr)
+library(parallel)
+library(furrr)
+data("flights")
+```
+
+### **Stratified Bootstrap**
+
+```{r}
+stratified_bootstrap <- function(data, n_bootstrap) {
+  bootstrap_sample <- data %>%
+    group_by(dest) %>%
+    summarize(group_size = n(), .groups = 'drop') %>%
+    left_join(data, by = "dest") %>%
+    group_by(dest) %>%
+    group_map(~ slice_sample(.x, replace = TRUE, n = first(.x$group_size))) %>%
+    bind_rows()
+
+  mean_air_time <- bootstrap_sample %>%
+    group_by(origin) %>%
+    summarize(avg_air_time = mean(air_time, na.rm = TRUE))
+
+  return(mean_air_time)
+}
+```
+
+### Without parallel processing
+
+```{r}
+system.time({
+  set.seed(123) 
+  bootstrap_results <- replicate(n = 1000, 
+                                 expr = stratified_bootstrap(flights, 1000), 
+                                 simplify = FALSE) %>% 
+    bind_rows(.id = "sample") 
+})
+
+```
+
+```{r}
+calculate_confidence_interval <- function(data, confidence_level = 0.95) {
+  quantile(data, c((1 - confidence_level) / 2, 1 - (1 - confidence_level) / 2))
+}
+
+bootstrap_summary <- bootstrap_results %>%
+  group_by(origin, sample) %>%
+  summarize(avg_air_time = mean(avg_air_time, na.rm = TRUE), .groups = 'drop') %>%
+  group_by(origin) %>%
+  summarize(
+    mean_air_time = mean(avg_air_time),
+    lower_ci = calculate_confidence_interval(avg_air_time)[1],
+    upper_ci = calculate_confidence_interval(avg_air_time)[2]
+  )
+
+print(bootstrap_summary)
+```
+
+### With parallel processing
+
+```{r}
+num_cores <- detectCores() - 1
+plan(multisession, workers = num_cores)
+```
+
+```{r}
+system.time({
+  set.seed(123) 
+  bootstrap_results_parallel <- future_map(1:1000, 
+                                           ~stratified_bootstrap(flights, 1000),
+                                           .options = furrr_options(seed = TRUE)) %>%
+    bind_rows(.id = "sample") 
+})
+```
+
+```{r}
+bootstrap_summary_parallel <- bootstrap_results_parallel %>%
+  group_by(origin, sample) %>%
+  summarize(avg_air_time = mean(avg_air_time, na.rm = TRUE), .groups = 'drop') %>%
+  group_by(origin) %>%
+  summarize(
+    mean_air_time = mean(avg_air_time),
+    lower_ci = calculate_confidence_interval(avg_air_time)[1],
+    upper_ci = calculate_confidence_interval(avg_air_time)[2]
+  )
+
+print(bootstrap_summary_parallel)
+```
+
+Without parallel:
+
+User time: 544.858 seconds, System time: 102.277 seconds, Elapsed time: 667.941 seconds
+
+With parallel:
+
+User time: 42.381 seconds, System time: 1.885 seconds, Elapsed time: 413.267 seconds
+
+The parallel approach is much faster in terms of user time and system time. It is also faster in terms of elapsed time.
